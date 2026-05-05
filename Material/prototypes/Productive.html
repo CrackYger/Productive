@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Productive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #050508; display: flex; align-items: center; justify-content: center; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+  #root { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+  ::-webkit-scrollbar { display: none; }
+
+  @keyframes fadeUp    { from { opacity:0; transform:translateY(22px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes fadeDown  { from { opacity:0; transform:translateY(-16px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+  @keyframes slideLeft { from { opacity:0; transform:translateX(-20px) scale(0.97); } to { opacity:1; transform:translateX(0) scale(1); } }
+  @keyframes popIn     { 0%{opacity:0;transform:scale(0.68) translateY(10px);} 65%{transform:scale(1.05) translateY(-2px);} 100%{opacity:1;transform:scale(1) translateY(0);} }
+  @keyframes screenIn  { from{opacity:0;transform:translateY(16px) scale(0.983);} to{opacity:1;transform:translateY(0) scale(1);} }
+  @keyframes sheetUp   { from{transform:translateY(100%);opacity:0;} 55%{opacity:1;} to{transform:translateY(0);opacity:1;} }
+
+  @keyframes checkPop  { 0%{transform:scale(0.3) rotate(-20deg);opacity:0;} 55%{transform:scale(1.4) rotate(6deg);} 80%{transform:scale(0.88) rotate(-3deg);} 100%{transform:scale(1) rotate(0);opacity:1;} }
+  @keyframes strike    { from{width:0;opacity:0;} 12%{opacity:1;} to{width:100%;opacity:1;} }
+  @keyframes floatXP   { 0%{opacity:0;transform:translateY(0) scale(0.6);} 18%{opacity:1;transform:translateY(-7px) scale(1.15);} 75%{opacity:1;transform:translateY(-30px) scale(1);} 100%{opacity:0;transform:translateY(-44px) scale(0.85);} }
+  @keyframes ripple    { 0%{transform:scale(0);opacity:0.5;} 100%{transform:scale(4);opacity:0;} }
+
+  @keyframes glowPulse { 0%,100%{transform:scale(1);opacity:0.45;} 50%{transform:scale(1.15);opacity:1;} }
+  @keyframes scorePulse{ 0%,100%{filter:drop-shadow(0 0 0px transparent);} 50%{filter:drop-shadow(0 0 20px rgba(0,194,194,0.7));} }
+  @keyframes badgeBounce{ 0%,100%{transform:scale(1) rotate(0);} 30%{transform:scale(1.14) rotate(-5deg);} 70%{transform:scale(1.09) rotate(4deg);} }
+  @keyframes expandDown{ from{opacity:0;transform:scaleY(0.8) translateY(-10px);transform-origin:top;} to{opacity:1;transform:scaleY(1) translateY(0);} }
+  @keyframes tabPop    { 0%{transform:scale(0.7);opacity:0;} 70%{transform:scale(1.1);} 100%{transform:scale(1);opacity:1;} }
+
+  .screen-enter { animation: screenIn 0.36s cubic-bezier(0.22,1,0.36,1) both; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "accentColor": "#00C2C2",
+  "accentGreen": "#3DDC84",
+  "cardRadius": 20,
+  "showMotivation": true,
+  "userName": "Max"
+}/*EDITMODE-END*/;
+
+const heute = () => {
+  const d = new Date();
+  const days = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+  const months = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  return `${days[d.getDay()]}, ${d.getDate()}. ${months[d.getMonth()]}`;
+};
+
+// ── ICONS ──
+const Icon = ({ name, size=24, color='currentColor', style={} }) => {
+  const s = { width:size, height:size, display:'inline-block', flexShrink:0, ...style };
+  const p = (d, extra={}) => <svg viewBox="0 0 24 24" fill="none" style={s} {...extra}>{d}</svg>;
+  const icons = {
+    home:    p(<><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z" stroke={color} strokeWidth="1.9" strokeLinejoin="round"/><path d="M9 21V13h6v8" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/></>),
+    book:    p(<><path d="M4 4h7a4 4 0 014 4v13a3 3 0 00-3-3H4V4z" stroke={color} strokeWidth="1.9" strokeLinejoin="round"/><path d="M20 4h-7a4 4 0 00-4 4v13a3 3 0 013-3h8V4z" stroke={color} strokeWidth="1.9" strokeLinejoin="round"/></>),
+    school:  p(<><path d="M12 3L2 8l10 5 10-5-10-5z" stroke={color} strokeWidth="1.9" strokeLinejoin="round" strokeLinecap="round"/><path d="M2 8v6" stroke={color} strokeWidth="1.9" strokeLinecap="round"/><path d="M7 11v5.5c0 1.38 2.24 2.5 5 2.5s5-1.12 5-2.5V11" stroke={color} strokeWidth="1.9" strokeLinecap="round"/></>),
+    person:  p(<><circle cx="12" cy="8" r="4" stroke={color} strokeWidth="1.9"/><path d="M4 20c0-4 3.58-7 8-7s8 3 8 7" stroke={color} strokeWidth="1.9" strokeLinecap="round"/></>),
+    check:   p(<path d="M5 12l5 5L19 7" stroke={color} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>),
+    plus:    p(<path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.2" strokeLinecap="round"/>),
+    fire:    p(<path d="M12 2C9 6 6 9 6 13a6 6 0 0012 0c0-2.5-1.5-4.5-3-6 0 2-1 3.5-3 4.5 1-3.5 0-6 0-9.5z" stroke={color} strokeWidth="1.8" strokeLinejoin="round"/>),
+    star:    p(<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke={color} strokeWidth="1.8" strokeLinejoin="round"/>),
+    clock:   p(<><circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8"/><path d="M12 7v5l3 3" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></>),
+    bolt:    p(<path d="M13 2L4 13h8l-1 9 9-11h-8l1-9z" stroke={color} strokeWidth="1.8" strokeLinejoin="round"/>),
+    chart:   p(<path d="M4 20h16M4 20V10l5 5 4-7 4 4V20" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>),
+    settings:p(<><circle cx="12" cy="12" r="3" stroke={color} strokeWidth="1.8"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke={color} strokeWidth="1.8"/></>),
+    medal:   p(<><circle cx="12" cy="14" r="7" stroke={color} strokeWidth="1.8"/><path d="M8.5 3h7L17 9H7L8.5 3z" stroke={color} strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 11v3l2 1" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></>),
+    target:  p(<><circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8"/><circle cx="12" cy="12" r="5" stroke={color} strokeWidth="1.8"/><circle cx="12" cy="12" r="1.5" fill={color}/></>),
+    chevron: p(<path d="M9 6l6 6-6 6" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"/>),
+    bell:    p(<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>),
+  };
+  return icons[name] || null;
+};
+
+// ── SCORE RING — half-circle with count-up + glow dot ──
+const ScoreRing = ({ score, accent, green }) => {
+  const W=220, H=122, cx=110, cy=116, r=82;
+  const rad = d => d * Math.PI / 180;
+  const arc = (a,b) => { const sa=rad(a),ea=rad(b); return `M ${cx+r*Math.cos(sa)} ${cy+r*Math.sin(sa)} A ${r} ${r} 0 0 1 ${cx+r*Math.cos(ea)} ${cy+r*Math.sin(ea)}`; };
+  const len = Math.PI * r;
+  const [on, setOn] = React.useState(false);
+  const [n, setN] = React.useState(0);
+
+  React.useEffect(() => { const t = setTimeout(()=>setOn(true), 160); return ()=>clearTimeout(t); }, []);
+  React.useEffect(() => {
+    if (!on) return;
+    const t0 = performance.now(), dur = 1400;
+    const tick = now => {
+      const p = Math.min((now-t0)/dur,1), e = p===1?1:1-Math.pow(2,-10*p);
+      setN(Math.round(e*score));
+      if(p<1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [on, score]);
+
+  const dotDeg = 180 - (score/100)*180;
+  const dotRad = rad(dotDeg);
+
+  return (
+    <div style={{position:'relative',width:W,height:H+58,display:'flex',flexDirection:'column',alignItems:'center'}}>
+      {/* ambient glow */}
+      <div style={{position:'absolute',bottom:20,left:'50%',transform:'translateX(-50%)',width:170,height:85,borderRadius:'50%',background:`radial-gradient(ellipse,${accent}45 0%,${green}12 55%,transparent 80%)`,filter:'blur(12px)',animation:'glowPulse 2.5s ease-in-out infinite',pointerEvents:'none'}}/>
+      <svg width={W} height={H} style={{overflow:'visible',marginTop:8}}>
+        <defs>
+          <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={green}/>
+            <stop offset="55%" stopColor={accent}/>
+            <stop offset="100%" stopColor={accent} stopOpacity="0.65"/>
+          </linearGradient>
+        </defs>
+        {/* glow track */}
+        <path d={arc(180,0)} fill="none" stroke={accent} strokeWidth="20" strokeLinecap="round" opacity="0.06"/>
+        {/* base track */}
+        <path d={arc(180,0)} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="12" strokeLinecap="round"/>
+        {/* filled */}
+        <path d={arc(180,0)} fill="none" stroke="url(#rg)" strokeWidth="12" strokeLinecap="round"
+          strokeDasharray={len} strokeDashoffset={on ? len-(score/100)*len : len}
+          style={{transition:'stroke-dashoffset 1.4s cubic-bezier(0.34,1.05,0.64,1)',filter:`drop-shadow(0 0 7px ${accent}95)`}}/>
+        {/* endpoint dot */}
+        {on && <circle cx={cx+r*Math.cos(dotRad)} cy={cy+r*Math.sin(dotRad)} r="7" fill={accent} style={{filter:`drop-shadow(0 0 10px ${accent})`,transition:'cx 1.4s cubic-bezier(0.34,1.05,0.64,1), cy 1.4s cubic-bezier(0.34,1.05,0.64,1)'}}/>}
+        {/* ticks */}
+        {[0,25,50,75,100].map(v=>{const deg=180-v*1.8,rd=rad(deg),ir=r-7,or=r+7;return <line key={v} x1={cx+ir*Math.cos(rd)} y1={cy+ir*Math.sin(rd)} x2={cx+or*Math.cos(rd)} y2={cy+or*Math.sin(rd)} stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" strokeLinecap="round"/>;})}
+      </svg>
+      <div style={{marginTop:4,textAlign:'center'}}>
+        <div style={{fontSize:48,fontWeight:800,color:'#fff',lineHeight:1,letterSpacing:-2.5,animation:on?'scorePulse 2s 1.5s ease-in-out 2':'none'}}>{n}</div>
+        <div style={{fontSize:9,color:'rgba(255,255,255,0.35)',letterSpacing:3,fontWeight:700,textTransform:'uppercase',marginTop:5}}>Produktivitäts-Score</div>
+      </div>
+    </div>
+  );
+};
+
+// ── STAT CARD ──
+const StatCard = ({ icon, value, label, color, r }) => (
+  <div style={{flex:1,background:'#12121e',borderRadius:r,padding:'12px 6px',textAlign:'center',border:'1px solid rgba(255,255,255,0.06)',minWidth:0}}>
+    <div style={{display:'flex',justifyContent:'center'}}><Icon name={icon} size={16} color={color}/></div>
+    <div style={{fontSize:19,fontWeight:800,color:'#fff',marginTop:5,letterSpacing:-0.5}}>{value}</div>
+    <div style={{fontSize:9,color:'rgba(255,255,255,0.35)',fontWeight:700,marginTop:2,letterSpacing:1,textTransform:'uppercase'}}>{label}</div>
+  </div>
+);
+
+// ── XP BANNER ──
+const XpBanner = ({ accent, score }) => (
+  <div style={{background:`linear-gradient(135deg,${accent}d0 0%,#008880 100%)`,borderRadius:16,padding:'11px 14px',display:'flex',alignItems:'center',gap:12,border:`1px solid ${accent}60`,boxShadow:`0 4px 24px ${accent}35`}}>
+    <div style={{width:38,height:38,borderRadius:12,background:'rgba(255,255,255,0.16)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+      <Icon name="bolt" size={19} color="#fff"/>
+    </div>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontSize:9,color:'rgba(255,255,255,0.75)',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase'}}>Aufgabe erledigt +10 XP</div>
+      <div style={{fontSize:15,fontWeight:800,color:'#fff',marginTop:1,letterSpacing:-0.3}}>Produktivitätsscore</div>
+      <div style={{fontSize:11,color:'rgba(255,255,255,0.6)',marginTop:1}}>{score} / 100 · Tracking aktiv</div>
+    </div>
+    <Icon name="chevron" size={18} color="rgba(255,255,255,0.55)"/>
+  </div>
+);
+
+// ── STREAK BADGE ──
+const StreakBadge = () => (
+  <div style={{background:'linear-gradient(135deg,#FF6B2B,#FF4200)',borderRadius:12,padding:'5px 10px 5px 7px',display:'inline-flex',alignItems:'center',gap:5,boxShadow:'0 4px 16px rgba(255,107,43,0.6)',animation:'badgeBounce 3.2s ease-in-out infinite'}}>
+    <Icon name="fire" size={14} color="#fff"/>
+    <span style={{fontSize:13,fontWeight:800,color:'#fff',lineHeight:1}}>5</span>
+  </div>
+);
+
+// ── RIPPLE HOOK ──
+const useRipple = () => {
+  const [rips, setRips] = React.useState([]);
+  const add = e => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const id = Date.now();
+    setRips(r=>[...r,{x:e.clientX-rect.left,y:e.clientY-rect.top,id}]);
+    setTimeout(()=>setRips(r=>r.filter(x=>x.id!==id)),700);
+  };
+  return [rips,add];
+};
+
+// ── TASK ITEM — full premium ──
+const TaskItem = ({ task, onToggle, accent, green, cardRadius }) => {
+  const [pressed, setPressed] = React.useState(false);
+  const [showXP, setShowXP] = React.useState(false);
+  const [xpKey, setXpKey] = React.useState(0);
+  const [flash, setFlash] = React.useState(false);
+  const [rips, addRip] = useRipple();
+
+  const toggle = e => {
+    if (!task.done) {
+      setShowXP(true); setXpKey(k=>k+1); setFlash(true);
+      setTimeout(()=>setShowXP(false),950);
+      setTimeout(()=>setFlash(false),650);
+      addRip(e);
+    }
+    onToggle(task.id);
+  };
+
+  const pc = { hoch:'#FF5252', mittel:accent, niedrig:green }[task.priority] || accent;
+
+  return (
+    <div
+      onMouseDown={()=>setPressed(true)} onMouseUp={()=>setPressed(false)} onMouseLeave={()=>setPressed(false)}
+      onClick={toggle}
+      style={{
+        background: flash ? 'rgba(61,220,132,0.11)' : task.done ? '#0e0e18' : '#12121e',
+        borderRadius: cardRadius, padding:'13px 14px',
+        display:'flex', alignItems:'center', gap:12,
+        border:`1px solid ${flash?'rgba(61,220,132,0.32)':task.done?'rgba(255,255,255,0.04)':'rgba(255,255,255,0.08)'}`,
+        transform: pressed ? 'scale(0.962)' : 'scale(1)',
+        transition:'transform 0.12s cubic-bezier(0.34,1.56,0.64,1),background 0.38s ease,border-color 0.38s ease,opacity 0.28s ease',
+        opacity: task.done && !flash ? 0.48 : 1,
+        position:'relative', overflow:'hidden', cursor:'pointer',
+        boxShadow: flash ? `0 0 0 1.5px rgba(61,220,132,0.22),0 6px 24px rgba(61,220,132,0.14)` : 'none',
+      }}
+    >
+      {/* ripples */}
+      {rips.map(rp=>(
+        <div key={rp.id} style={{position:'absolute',left:rp.x-28,top:rp.y-28,width:56,height:56,borderRadius:'50%',background:`${green}38`,pointerEvents:'none',animation:'ripple 0.7s ease-out forwards'}}/>
+      ))}
+      {/* priority bar */}
+      <div style={{width:3,height:34,borderRadius:99,background:pc,flexShrink:0,opacity:task.done?0.2:0.95,transform:task.done?'scaleY(0.55)':'scaleY(1)',transition:'opacity 0.38s ease,transform 0.38s cubic-bezier(0.34,1.56,0.64,1)'}}/>
+      {/* text */}
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{position:'relative',display:'inline-block'}}>
+          <span style={{fontSize:14,fontWeight:600,color:task.done?'rgba(255,255,255,0.28)':'#f0f0f8',letterSpacing:-0.2,transition:'color 0.32s ease'}}>{task.title}</span>
+          {task.done && <div style={{position:'absolute',top:'52%',left:0,height:'1.5px',background:'rgba(255,255,255,0.2)',borderRadius:2,animation:'strike 0.42s cubic-bezier(0.25,1,0.5,1) forwards'}}/>}
+        </div>
+        {task.subtask && <div style={{fontSize:11,color:'rgba(255,255,255,0.28)',marginTop:2,fontWeight:500,opacity:task.done?0.45:1,transition:'opacity 0.3s ease'}}>{task.subtask}</div>}
+      </div>
+      {/* check */}
+      <button onClick={e=>{e.stopPropagation();toggle(e);}} style={{width:30,height:30,borderRadius:9,flexShrink:0,border:`1.5px solid ${task.done?green:'rgba(255,255,255,0.14)'}`,background:task.done?green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',position:'relative',transition:'all 0.26s cubic-bezier(0.34,1.56,0.64,1)',boxShadow:task.done?`0 0 16px ${green}75`:'none'}}>
+        {task.done && <div style={{animation:'checkPop 0.42s cubic-bezier(0.34,1.56,0.64,1) both'}}><Icon name="check" size={15} color="#050508"/></div>}
+        {showXP && <div key={xpKey} style={{position:'absolute',top:-13,right:-5,fontSize:11,fontWeight:800,color:green,pointerEvents:'none',animation:'floatXP 0.95s cubic-bezier(0.25,1,0.5,1) forwards',zIndex:10,textShadow:`0 0 12px ${green}`}}>+10</div>}
+      </button>
+    </div>
+  );
+};
+
+// ── ADD TASK MODAL ──
+const AddTaskModal = ({ onAdd, onClose, accent }) => {
+  const [title,setTitle]=React.useState('');
+  const [sub,setSub]=React.useState('');
+  const [prio,setPrio]=React.useState('mittel');
+  const opts=[{k:'hoch',l:'Hoch',c:'#FF5252'},{k:'mittel',l:'Mittel',c:accent},{k:'niedrig',l:'Niedrig',c:'#3DDC84'}];
+  const inp={width:'100%',background:'#0e0e1a',border:'1px solid rgba(255,255,255,0.1)',borderRadius:13,padding:'12px 14px',fontSize:14,color:'#fff',outline:'none',fontFamily:'inherit',marginBottom:10,transition:'border-color 0.2s ease'};
+  return (
+    <div style={{position:'absolute',inset:0,zIndex:100,display:'flex',alignItems:'flex-end',background:'rgba(0,0,0,0.72)',backdropFilter:'blur(8px)'}} onClick={onClose}>
+      <div style={{width:'100%',background:'#12121e',borderRadius:'22px 22px 0 0',padding:'18px 18px 36px',animation:'sheetUp 0.4s cubic-bezier(0.22,1,0.36,1) both'}} onClick={e=>e.stopPropagation()}>
+        <div style={{width:38,height:4,background:'rgba(255,255,255,0.14)',borderRadius:99,margin:'0 auto 18px'}}/>
+        <div style={{fontSize:17,fontWeight:800,color:'#fff',marginBottom:14,letterSpacing:-0.3}}>Neue Aufgabe</div>
+        <input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder="Aufgabentitel..." style={inp}/>
+        <input value={sub} onChange={e=>setSub(e.target.value)} placeholder="Beschreibung (optional)" style={inp}/>
+        <div style={{fontSize:10,color:'rgba(255,255,255,0.38)',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',marginBottom:8}}>Priorität</div>
+        <div style={{display:'flex',gap:8,marginBottom:18}}>
+          {opts.map(o=>(
+            <button key={o.k} onClick={()=>setPrio(o.k)} style={{flex:1,padding:'9px 0',borderRadius:12,border:`1.5px solid ${prio===o.k?o.c:'rgba(255,255,255,0.08)'}`,background:prio===o.k?`${o.c}18`:'transparent',color:prio===o.k?o.c:'rgba(255,255,255,0.38)',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',transition:'all 0.18s ease'}}>{o.l}</button>
+          ))}
+        </div>
+        <button onClick={()=>{if(title.trim()){onAdd({title:title.trim(),subtask:sub.trim(),priority:prio});onClose();}}} style={{width:'100%',padding:'14px',borderRadius:15,background:`linear-gradient(135deg,${accent},#008888)`,border:'none',color:'#050508',fontSize:15,fontWeight:800,cursor:'pointer',fontFamily:'inherit',boxShadow:`0 6px 22px ${accent}50`,transition:'transform 0.15s ease,box-shadow 0.15s ease'}}>
+          Hinzufügen
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ── HOME SCREEN ──
+const HomeScreen = ({ tweaks }) => {
+  const { accentColor:accent, accentGreen:green, cardRadius, userName } = tweaks;
+  const [tasks,setTasks] = React.useState([
+    {id:1,title:'Mathe Aufgaben lösen',subtask:'Kapitel 7 & 8',priority:'hoch',done:false},
+    {id:2,title:'Buch weiterlesen',subtask:'Atomic Habits — S. 120',priority:'mittel',done:false},
+    {id:3,title:'Sport — 30 Min',subtask:'Laufen oder Yoga',priority:'niedrig',done:true},
+    {id:4,title:'Englisch Vokabeln',subtask:'20 neue Wörter',priority:'mittel',done:false},
+    {id:5,title:'Referat vorbereiten',subtask:'Geschichte: WW2',priority:'hoch',done:false},
+  ]);
+  const [modal,setModal] = React.useState(false);
+  const done = tasks.filter(t=>t.done).length;
+  const score = Math.round((done/tasks.length)*100);
+  const toggle = id => setTasks(ts=>ts.map(t=>t.id===id?{...t,done:!t.done}:t));
+
+  return (
+    <div style={{flex:1,overflowY:'auto',paddingBottom:90,scrollbarWidth:'none'}}>
+      {/* header */}
+      <div style={{padding:'50px 18px 0',display:'flex',alignItems:'flex-start',justifyContent:'space-between',animation:'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div>
+          <div style={{fontSize:26,fontWeight:800,color:'#fff',letterSpacing:-0.8}}>{userName}</div>
+          <div style={{fontSize:12,color:'rgba(255,255,255,0.35)',fontWeight:600,marginTop:1}}>{heute()}</div>
+        </div>
+        <StreakBadge/>
+      </div>
+
+      {/* XP banner */}
+      <div style={{padding:'12px 18px 0',animation:'fadeUp 0.42s 0.07s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <XpBanner accent={accent} score={score}/>
+      </div>
+
+      {/* score ring */}
+      <div style={{display:'flex',flexDirection:'column',alignItems:'center',padding:'14px 18px 0',animation:'popIn 0.55s 0.12s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <ScoreRing score={score} accent={accent} green={green}/>
+      </div>
+
+      {/* stats */}
+      <div style={{display:'flex',gap:8,padding:'10px 18px 0',animation:'fadeUp 0.42s 0.22s cubic-bezier(0.22,1,0.36,1) both',boxSizing:'border-box'}}>
+        <StatCard icon="check" value={done} label="Erledigt" color={green} r={cardRadius-4}/>
+        <StatCard icon="clock" value={tasks.length-done} label="Offen" color={accent} r={cardRadius-4}/>
+        <StatCard icon="fire" value="5 Tage" label="Serie" color="#FF6B2B" r={cardRadius-4}/>
+      </div>
+
+      {/* tasks */}
+      <div style={{padding:'16px 18px 0',animation:'fadeUp 0.42s 0.28s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+          <div>
+            <div style={{fontSize:17,fontWeight:800,color:'#fff',letterSpacing:-0.4}}>Aufgaben</div>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.3)',marginTop:1,fontWeight:600}}>{done} von {tasks.length} erledigt</div>
+          </div>
+          <button onClick={()=>setModal(true)} style={{width:34,height:34,borderRadius:11,background:`linear-gradient(135deg,${accent},#008888)`,border:'none',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',boxShadow:`0 4px 16px ${accent}55`,transition:'transform 0.15s cubic-bezier(0.34,1.56,0.64,1)'}}>
+            <Icon name="plus" size={18} color="#050508"/>
+          </button>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {tasks.map((task,i)=>(
+            <div key={task.id} style={{animation:`fadeUp 0.38s ${0.3+0.06*i}s cubic-bezier(0.22,1,0.36,1) both`}}>
+              <TaskItem task={task} onToggle={toggle} accent={accent} green={green} cardRadius={cardRadius-4}/>
+            </div>
+          ))}
+        </div>
+      </div>
+      {modal && <AddTaskModal onAdd={t=>setTasks(ts=>[...ts,{id:Date.now(),...t,done:false}])} onClose={()=>setModal(false)} accent={accent}/>}
+    </div>
+  );
+};
+
+// ── BÜCHER SCREEN ──
+const BooksScreen = ({ tweaks }) => {
+  const { accentColor:accent, accentGreen:green, cardRadius } = tweaks;
+  const [sel,setSel] = React.useState(null);
+  const books = [
+    {id:1,title:'Atomic Habits',author:'James Clear',progress:68,color:'#FF6B2B',pages:320,cur:218},
+    {id:2,title:'Deep Work',author:'Cal Newport',progress:31,color:accent,pages:296,cur:92},
+    {id:3,title:'Die Kunst des klaren Denkens',author:'Rolf Dobelli',progress:90,color:green,pages:280,cur:252},
+    {id:4,title:'Essentialism',author:'Greg McKeown',progress:0,color:'#FF5252',pages:272,cur:0},
+  ];
+  const total = books.reduce((s,b)=>s+b.cur,0);
+
+  return (
+    <div style={{flex:1,overflowY:'auto',paddingBottom:90,scrollbarWidth:'none'}}>
+      <div style={{padding:'50px 18px 0',animation:'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div style={{fontSize:26,fontWeight:800,color:'#fff',letterSpacing:-0.8}}>Bücher</div>
+        <div style={{fontSize:12,color:'rgba(255,255,255,0.35)',fontWeight:600,marginTop:1}}>{heute()}</div>
+      </div>
+      <div style={{padding:'12px 18px 0',animation:'fadeUp 0.42s 0.07s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div style={{background:'linear-gradient(135deg,#1a2a5e,#0d1a3a)',borderRadius:18,padding:'16px',border:'1px solid rgba(100,140,255,0.18)',boxShadow:'0 4px 28px rgba(30,60,200,0.22)'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+            <div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.42)',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase'}}>Jahresziel</div>
+              <div style={{fontSize:22,fontWeight:800,color:'#fff',letterSpacing:-0.5,marginTop:2}}>12 Bücher</div>
+            </div>
+            <div style={{background:`${accent}22`,borderRadius:10,padding:'6px 12px',border:`1px solid ${accent}38`}}>
+              <span style={{fontSize:14,fontWeight:800,color:accent}}>4 / 12</span>
+            </div>
+          </div>
+          <div style={{background:'rgba(255,255,255,0.08)',borderRadius:99,height:6,overflow:'hidden'}}>
+            <div style={{height:'100%',width:'33%',borderRadius:99,background:`linear-gradient(90deg,#3060dd,${accent})`,transition:'width 1.2s cubic-bezier(0.34,1.05,0.64,1)'}}/>
+          </div>
+          <div style={{fontSize:11,color:'rgba(255,255,255,0.32)',marginTop:7,fontWeight:600}}>{total} Seiten gelesen gesamt</div>
+        </div>
+      </div>
+      <div style={{padding:'12px 18px 0',display:'flex',flexDirection:'column',gap:10}}>
+        {books.map((book,i)=>(
+          <div key={book.id} onClick={()=>setSel(sel===book.id?null:book.id)}
+            style={{background:'#12121e',borderRadius:cardRadius,padding:'14px',border:`1px solid ${sel===book.id?book.color+'40':'rgba(255,255,255,0.07)'}`,cursor:'pointer',transition:'all 0.24s cubic-bezier(0.22,1,0.36,1)',animation:`slideLeft 0.4s ${0.08+0.07*i}s cubic-bezier(0.22,1,0.36,1) both`,transform:sel===book.id?'scale(1.01)':'scale(1)',boxShadow:sel===book.id?`0 8px 28px rgba(0,0,0,0.4)`:'none'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <div style={{width:48,height:62,borderRadius:10,flexShrink:0,background:`linear-gradient(145deg,${book.color}28,${book.color}0a)`,border:`1.5px solid ${book.color}35`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Icon name="book" size={20} color={book.color}/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:700,color:'#f0f0f8',letterSpacing:-0.2}}>{book.title}</div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,0.35)',marginTop:2}}>{book.author}</div>
+                <div style={{marginTop:10}}>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                    <span style={{fontSize:10,color:'rgba(255,255,255,0.32)',fontWeight:600}}>{book.cur}/{book.pages} S.</span>
+                    <span style={{fontSize:10,color:book.color,fontWeight:800}}>{book.progress}%</span>
+                  </div>
+                  <div style={{background:'rgba(255,255,255,0.07)',borderRadius:99,height:4,overflow:'hidden'}}>
+                    <div style={{height:'100%',width:`${book.progress}%`,borderRadius:99,background:book.color,transition:'width 1s cubic-bezier(0.34,1.05,0.64,1)',boxShadow:`0 0 8px ${book.color}80`}}/>
+                  </div>
+                </div>
+              </div>
+              <Icon name="chevron" size={16} color="rgba(255,255,255,0.2)" style={{transform:sel===book.id?'rotate(90deg)':'none',transition:'transform 0.24s cubic-bezier(0.34,1.56,0.64,1)'}}/>
+            </div>
+            {sel===book.id && (
+              <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid rgba(255,255,255,0.06)',display:'flex',gap:8,animation:'expandDown 0.26s cubic-bezier(0.22,1,0.36,1) both'}}>
+                {[{l:'Seiten/Tag',v:'12',i:'bolt'},{l:'Verbleibend',v:book.pages-book.cur,i:'clock'},{l:'Tage',v:Math.ceil((book.pages-book.cur)/12)+'d',i:'target'}].map(s=>(
+                  <div key={s.l} style={{flex:1,background:'#0e0e18',borderRadius:12,padding:'10px 8px',textAlign:'center',border:'1px solid rgba(255,255,255,0.05)'}}>
+                    <Icon name={s.i} size={13} color={book.color}/>
+                    <div style={{fontSize:16,fontWeight:800,color:'#fff',marginTop:4}}>{s.v}</div>
+                    <div style={{fontSize:9,color:'rgba(255,255,255,0.28)',fontWeight:700,letterSpacing:1}}>{s.l.toUpperCase()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ── SCHULE SCREEN ──
+const SchuleScreen = ({ tweaks }) => {
+  const { accentColor:accent, accentGreen:green, cardRadius } = tweaks;
+  const subs = [
+    {name:'Mathematik',grade:2.0,next:'Klassenarbeit 15. Mai',color:'#FF6B2B',done:3,total:5},
+    {name:'Deutsch',grade:1.7,next:'Aufsatz abgeben',color:green,done:4,total:4},
+    {name:'Englisch',grade:2.3,next:'Vokabeltest Freitag',color:accent,done:2,total:5},
+    {name:'Geschichte',grade:1.3,next:'Referat vorbereiten',color:'#c084fc',done:1,total:3},
+    {name:'Physik',grade:3.0,next:'Formelblatt lernen',color:'#FF5252',done:0,total:4},
+  ];
+  const avg = (subs.reduce((s,x)=>s+x.grade,0)/subs.length).toFixed(1);
+
+  return (
+    <div style={{flex:1,overflowY:'auto',paddingBottom:90,scrollbarWidth:'none'}}>
+      <div style={{padding:'50px 18px 0',animation:'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div style={{fontSize:26,fontWeight:800,color:'#fff',letterSpacing:-0.8}}>Schule</div>
+        <div style={{fontSize:12,color:'rgba(255,255,255,0.35)',fontWeight:600,marginTop:1}}>{heute()}</div>
+      </div>
+      <div style={{display:'flex',gap:10,padding:'12px 18px 0',animation:'fadeUp 0.42s 0.07s cubic-bezier(0.22,1,0.36,1) both'}}>
+        {[{bg:'linear-gradient(135deg,#1a2a5e,#0d1a3a)',bd:'rgba(100,140,255,0.18)',icon:'medal',c:accent,val:avg,lbl:'Ø Schnitt'},
+          {bg:'linear-gradient(135deg,#0e2a1e,#081810)',bd:'rgba(60,220,130,0.15)',icon:'chart',c:green,val:'↑ 0.4',lbl:'Verbesserung'}].map((card,i)=>(
+          <div key={i} style={{flex:1,background:card.bg,borderRadius:cardRadius,padding:'16px',border:`1px solid ${card.bd}`}}>
+            <Icon name={card.icon} size={18} color={card.c}/>
+            <div style={{fontSize:30,fontWeight:800,color:'#fff',letterSpacing:-1,marginTop:6}}>{card.val}</div>
+            <div style={{fontSize:10,color:'rgba(255,255,255,0.38)',fontWeight:700,letterSpacing:1,textTransform:'uppercase'}}>{card.lbl}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{padding:'12px 18px 0',display:'flex',flexDirection:'column',gap:8}}>
+        <div style={{fontSize:10,color:'rgba(255,255,255,0.32)',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',marginBottom:4}}>Fächer</div>
+        {subs.map((sub,i)=>{
+          const gc=sub.grade<=2?green:sub.grade<=2.7?'#FF6B2B':'#FF5252';
+          return (
+            <div key={sub.name} style={{background:'#12121e',borderRadius:cardRadius,padding:'13px 14px',border:'1px solid rgba(255,255,255,0.06)',display:'flex',alignItems:'center',gap:12,animation:`slideLeft 0.38s ${0.08+0.06*i}s cubic-bezier(0.22,1,0.36,1) both`}}>
+              <div style={{width:38,height:38,borderRadius:13,flexShrink:0,background:`${sub.color}18`,border:`1.5px solid ${sub.color}35`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Icon name="school" size={17} color={sub.color}/>
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{fontSize:14,fontWeight:700,color:'#f0f0f8',letterSpacing:-0.2}}>{sub.name}</div>
+                  <div style={{fontSize:14,fontWeight:800,color:gc,background:`${gc}18`,borderRadius:8,padding:'2px 9px',border:`1px solid ${gc}30`}}>{sub.grade}</div>
+                </div>
+                <div style={{fontSize:11,color:'rgba(255,255,255,0.32)',marginTop:2}}>📅 {sub.next}</div>
+                <div style={{marginTop:7}}>
+                  <div style={{background:'rgba(255,255,255,0.06)',borderRadius:99,height:3,overflow:'hidden'}}>
+                    <div style={{height:'100%',width:`${(sub.done/sub.total)*100}%`,borderRadius:99,background:sub.color,transition:'width 1s cubic-bezier(0.34,1.05,0.64,1)'}}/>
+                  </div>
+                  <div style={{fontSize:9,color:'rgba(255,255,255,0.22)',marginTop:3,fontWeight:700,letterSpacing:1}}>{sub.done}/{sub.total} AUFGABEN</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── PROFIL SCREEN ──
+const ProfilScreen = ({ tweaks }) => {
+  const { accentColor:accent, accentGreen:green, cardRadius, userName } = tweaks;
+  const stats=[{label:'Aufgaben',value:'247',icon:'check',color:green},{label:'Bücher',value:'12',icon:'book',color:accent},{label:'Serie',value:'18T',icon:'fire',color:'#FF6B2B'},{label:'Punkte',value:'2470',icon:'star',color:'#FFD700'}];
+  const ach=[{name:'Erstes Buch',icon:'📚',e:true},{name:'7-Tage-Serie',icon:'🔥',e:true},{name:'50 Aufgaben',icon:'✅',e:true},{name:'Schnitt < 2',icon:'🏆',e:false},{name:'30-Tage-Serie',icon:'⚡',e:false},{name:'10 Bücher',icon:'🎯',e:false}];
+  const cfg=[{label:'Account Einstellungen',icon:'person'},{label:'App Einstellungen',icon:'settings'},{label:'Feedback & Wünsche',icon:'bell'},{label:'Updateverlauf',icon:'clock'}];
+
+  return (
+    <div style={{flex:1,overflowY:'auto',paddingBottom:90,scrollbarWidth:'none'}}>
+      <div style={{padding:'50px 18px 0',animation:'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div style={{fontSize:26,fontWeight:800,color:'#fff',letterSpacing:-0.8}}>Profil</div>
+        <div style={{fontSize:12,color:'rgba(255,255,255,0.35)',fontWeight:600,marginTop:1}}>{heute()}</div>
+      </div>
+      {/* hero banner */}
+      <div style={{padding:'12px 18px 0',animation:'fadeUp 0.42s 0.07s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div style={{background:`linear-gradient(135deg,${accent}d0,#006060)`,borderRadius:18,padding:'18px 16px',display:'flex',alignItems:'center',gap:14,border:`1px solid ${accent}52`,boxShadow:`0 6px 28px ${accent}35`}}>
+          <div style={{width:52,height:52,borderRadius:18,background:'rgba(255,255,255,0.16)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,flexShrink:0}}>🎓</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:10,color:'rgba(255,255,255,0.7)',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase'}}>Produktiver Schüler</div>
+            <div style={{fontSize:20,fontWeight:800,color:'#fff',letterSpacing:-0.4,marginTop:1}}>{userName}</div>
+            <div style={{fontSize:12,color:'rgba(255,255,255,0.6)',marginTop:1}}>Stufe 7 · 2.470 XP</div>
+          </div>
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:10,color:'rgba(255,255,255,0.5)',fontWeight:700}}>XP BIS LEVEL 8</div>
+            <div style={{fontSize:18,fontWeight:800,color:'#fff'}}>530</div>
+          </div>
+        </div>
+      </div>
+      {/* stats */}
+      <div style={{display:'flex',gap:8,padding:'10px 18px 0',animation:'fadeUp 0.42s 0.12s cubic-bezier(0.22,1,0.36,1) both'}}>
+        {stats.map((s,i)=>(
+          <div key={s.label} style={{flex:1,background:'#12121e',borderRadius:cardRadius-6,padding:'11px 6px',textAlign:'center',border:'1px solid rgba(255,255,255,0.06)',animation:`popIn 0.4s ${0.12+0.05*i}s cubic-bezier(0.22,1,0.36,1) both`}}>
+            <Icon name={s.icon} size={16} color={s.color}/>
+            <div style={{fontSize:17,fontWeight:800,color:'#fff',marginTop:5,letterSpacing:-0.5}}>{s.value}</div>
+            <div style={{fontSize:9,color:'rgba(255,255,255,0.28)',fontWeight:700,marginTop:2,letterSpacing:1}}>{s.label.toUpperCase()}</div>
+          </div>
+        ))}
+      </div>
+      {/* achievements */}
+      <div style={{padding:'12px 18px 0',animation:'fadeUp 0.42s 0.17s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div style={{fontSize:10,color:'rgba(255,255,255,0.32)',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',marginBottom:10}}>Trophäen</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+          {ach.map((a,i)=>(
+            <div key={a.name} style={{background:a.e?`${accent}12`:'#0e0e18',borderRadius:cardRadius-6,padding:'13px 8px',textAlign:'center',border:`1px solid ${a.e?accent+'2e':'rgba(255,255,255,0.04)'}`,opacity:a.e?1:0.32,animation:`popIn 0.38s ${0.18+0.04*i}s cubic-bezier(0.22,1,0.36,1) both`}}>
+              <div style={{fontSize:24}}>{a.icon}</div>
+              <div style={{fontSize:9,color:a.e?'rgba(255,255,255,0.68)':'rgba(255,255,255,0.28)',fontWeight:700,marginTop:6,lineHeight:1.3}}>{a.name}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* settings */}
+      <div style={{padding:'12px 18px 0',animation:'fadeUp 0.42s 0.22s cubic-bezier(0.22,1,0.36,1) both'}}>
+        <div style={{fontSize:10,color:'rgba(255,255,255,0.32)',fontWeight:700,letterSpacing:1.5,textTransform:'uppercase',marginBottom:10}}>Einstellungen</div>
+        <div style={{background:'#12121e',borderRadius:cardRadius,overflow:'hidden',border:'1px solid rgba(255,255,255,0.06)'}}>
+          {cfg.map((item,i)=>(
+            <div key={item.label} style={{display:'flex',alignItems:'center',gap:14,padding:'14px',borderBottom:i<cfg.length-1?'1px solid rgba(255,255,255,0.05)':'none',cursor:'pointer',transition:'background 0.15s ease'}}
+              onMouseEnter={e=>e.currentTarget.style.background='rgba(255,255,255,0.03)'}
+              onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              <div style={{width:34,height:34,borderRadius:11,background:'#1e1e2e',border:'1px solid rgba(255,255,255,0.08)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <Icon name={item.icon} size={16} color={accent}/>
+              </div>
+              <div style={{flex:1,fontSize:14,fontWeight:600,color:'#e8e8f0'}}>{item.label}</div>
+              <Icon name="chevron" size={16} color="rgba(255,255,255,0.16)"/>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── TAB BAR — premium with spring press + glow indicator ──
+const TabBar = ({ active, onChange, accent }) => {
+  const tabs=[{id:'home',label:'Home',icon:'home'},{id:'books',label:'Bücher',icon:'book'},{id:'school',label:'Schule',icon:'school'},{id:'profile',label:'Profil',icon:'person'}];
+  const [pressed,setPressed]=React.useState(null);
+  return (
+    <div style={{position:'absolute',bottom:0,left:0,right:0,zIndex:50,background:'rgba(6,6,12,0.94)',backdropFilter:'blur(22px)',WebkitBackdropFilter:'blur(22px)',borderTop:'0.5px solid rgba(255,255,255,0.07)',paddingBottom:24,paddingTop:8}}>
+      <div style={{display:'flex'}}>
+        {tabs.map(tab=>{
+          const active_ = active===tab.id;
+          const press_ = pressed===tab.id;
+          return (
+            <button key={tab.id}
+              onMouseDown={()=>setPressed(tab.id)} onMouseUp={()=>setPressed(null)} onMouseLeave={()=>setPressed(null)}
+              onClick={()=>onChange(tab.id)}
+              style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:4,background:'transparent',border:'none',cursor:'pointer',padding:'6px 0 0',position:'relative',transform:press_?'scale(0.82)':'scale(1)',transition:'transform 0.14s cubic-bezier(0.34,1.56,0.64,1)'}}>
+              {/* glow indicator */}
+              <div style={{position:'absolute',top:0,left:'50%',transform:'translateX(-50%)',width:active_?28:0,height:2.5,borderRadius:99,background:accent,boxShadow:active_?`0 0 12px ${accent},0 0 24px ${accent}55`:'none',transition:'width 0.32s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.32s ease'}}/>
+              {/* icon */}
+              <div style={{transform:active_?'scale(1.14) translateY(-1px)':'scale(1)',transition:'transform 0.3s cubic-bezier(0.34,1.56,0.64,1)'}}>
+                <Icon name={tab.icon} size={22} color={active_?accent:'rgba(255,255,255,0.26)'}/>
+              </div>
+              <span style={{fontSize:10,fontWeight:active_?700:500,letterSpacing:0.1,color:active_?accent:'rgba(255,255,255,0.26)',transition:'color 0.22s ease'}}>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ── APP ──
+const App = () => {
+  const [tweaks,setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const [tab,setTab] = React.useState('home');
+  const [key,setKey] = React.useState(0);
+  const go = t => { if(t===tab) return; setTab(t); setKey(k=>k+1); };
+  const screens = { home:<HomeScreen tweaks={tweaks}/>, books:<BooksScreen tweaks={tweaks}/>, school:<SchuleScreen tweaks={tweaks}/>, profile:<ProfilScreen tweaks={tweaks}/> };
+
+  return (
+    <div style={{display:'flex',alignItems:'center',justifyContent:'center',width:'100%',height:'100%',minHeight:'100vh',background:'#050508'}}>
+      <IOSDevice width={390} height={844} dark={true}>
+        <div style={{width:'100%',height:'100%',display:'flex',flexDirection:'column',background:'#080810',position:'relative',overflow:'hidden'}}>
+          <div style={{height:52,flexShrink:0}}/>
+          <div key={key} className="screen-enter" style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden',position:'relative'}}>
+            {screens[tab]}
+          </div>
+          <TabBar active={tab} onChange={go} accent={tweaks.accentColor}/>
+        </div>
+      </IOSDevice>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Farben"/>
+        <TweakColor label="Akzentfarbe" value={tweaks.accentColor} onChange={v=>setTweak('accentColor',v)}/>
+        <TweakColor label="Erfolgsfarbe" value={tweaks.accentGreen} onChange={v=>setTweak('accentGreen',v)}/>
+        <TweakSection label="Design"/>
+        <TweakSlider label="Eckenradius" value={tweaks.cardRadius} min={10} max={32} step={1} onChange={v=>setTweak('cardRadius',v)}/>
+        <TweakToggle label="Motivationstext" value={tweaks.showMotivation} onChange={v=>setTweak('showMotivation',v)}/>
+        <TweakSection label="Profil"/>
+        <TweakText label="Dein Name" value={tweaks.userName} onChange={v=>setTweak('userName',v)}/>
+      </TweaksPanel>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
