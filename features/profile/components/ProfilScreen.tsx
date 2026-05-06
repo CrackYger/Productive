@@ -11,6 +11,7 @@ import { useSchool } from '../../../hooks/useSchool';
 import { useSettings } from '../../../hooks/useSettings';
 import { useStreak } from '../../../hooks/useStreak';
 import { useTasks } from '../../../hooks/useTasks';
+import { useHideChromeWhileMounted } from '../../../contexts/UIChromeContext';
 import type { IconName } from '../../../components/Icon';
 import type { UserSettings } from '../../../hooks/useSettings';
 
@@ -49,15 +50,30 @@ const primaryButton = (accent = ACCENT): React.CSSProperties => ({
   boxShadow: `0 6px 22px ${accent}50`,
 });
 
-const Sheet: React.FC<SheetProps> = ({ title, onClose, children }) => (
-  <div style={{ position: 'absolute', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }} onClick={onClose}>
-    <div style={{ width: '100%', background: '#12121e', borderRadius: '22px 22px 0 0', padding: '18px 18px calc(40px + env(safe-area-inset-bottom, 0px))', animation: 'sheetUp 0.4s cubic-bezier(0.22,1,0.36,1) both' }} onClick={event => event.stopPropagation()}>
-      <div style={{ width: 38, height: 4, background: 'rgba(255,255,255,0.14)', borderRadius: 99, margin: '0 auto 18px' }} />
-      <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginBottom: 14, letterSpacing: -0.3 }}>{title}</div>
-      {children}
+const Sheet: React.FC<SheetProps> = ({ title, onClose, children }) => {
+  useHideChromeWhileMounted();
+  return (
+    <div
+      style={{ position: 'absolute', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: 16, animation: 'fadeIn 0.18s ease both' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ width: '100%', maxWidth: 380, maxHeight: 'calc(100dvh - 64px)', background: 'linear-gradient(180deg,#15151f 0%,#0f0f18 100%)', borderRadius: 22, border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 20px 60px rgba(0,0,0,0.55)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalIn 0.32s cubic-bezier(0.22,1,0.36,1) both' }}
+        onClick={event => event.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 12px' }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>{title}</div>
+          <button type="button" aria-label="Schließen" onClick={onClose} style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+            ×
+          </button>
+        </div>
+        <div style={{ padding: '4px 18px 18px', overflowY: 'auto' }}>
+          {children}
+        </div>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const AccountSheet: React.FC<{
   displayName: string;
@@ -228,7 +244,7 @@ export const ProfilScreen: React.FC = () => {
   const email = profile?.email ?? '';
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 90 }}>
+    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
       <div style={{ padding: 'max(50px, env(safe-area-inset-top)) 18px 0', animation: 'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both' }}>
         <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: -0.8 }}>Profil</div>
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', fontWeight: 600, marginTop: 1 }}>{todayFormatted()}</div>
