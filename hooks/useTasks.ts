@@ -40,16 +40,16 @@ export interface AddInput {
   recurrence_days: number[];
 }
 
-const mapTask = (row: TaskRow): Task => ({
-  id: row.id,
+const mapTask = (row: Partial<TaskRow>): Task => ({
+  id: row.id as string,
   user_id: row.user_id,
-  title: row.title,
+  title: row.title as string,
   description: row.description ?? undefined,
-  priority: row.priority,
+  priority: row.priority as Priority,
   category: row.category ?? 'other',
-  done: row.done,
+  done: row.done ?? false,
   skipped: row.skipped ?? false,
-  date: row.due_date,
+  date: (row.due_date as string) ?? todayISO(),
   unit: row.unit ?? 'none',
   target_amount: row.target_amount ?? undefined,
   progress_amount: row.progress_amount ?? 0,
@@ -58,11 +58,29 @@ const mapTask = (row: TaskRow): Task => ({
   recurrence: row.recurrence ?? 'none',
   recurrence_days: row.recurrence_days ?? [],
   last_completed_date: row.last_completed_date ?? undefined,
-  created_at: row.created_at,
-  updated_at: row.updated_at,
+  created_at: (row.created_at as string) ?? nowISO(),
+  updated_at: (row.updated_at as string) ?? nowISO(),
 });
 
-const TASK_COLUMNS = 'id,user_id,title,description,priority,category,done,skipped,due_date,unit,target_amount,progress_amount,time_of_day,book_id,recurrence,recurrence_days,last_completed_date,created_at,updated_at';
+const TASK_COLUMNS_V02 = 'id,user_id,title,description,priority,category,done,skipped,due_date,unit,target_amount,progress_amount,time_of_day,book_id,recurrence,recurrence_days,last_completed_date,created_at,updated_at';
+const TASK_COLUMNS_V01 = 'id,user_id,title,description,priority,category,done,due_date,unit,target_amount,progress_amount,time_of_day,book_id,created_at,updated_at';
+const V02_FIELDS = ['skipped', 'recurrence', 'recurrence_days', 'last_completed_date'] as const;
+
+let v02Available = true;
+
+const isMissingColumn = (err: unknown): boolean => {
+  if (!err || typeof err !== 'object') return false;
+  const e = err as { code?: string; message?: string };
+  if (e.code === '42703' || e.code === 'PGRST204') return true;
+  return /column\s+.*does not exist/i.test(e.message ?? '');
+};
+
+const stripV02 = <T extends Record<string, unknown>>(payload: T): T => {
+  if (v02Available) return payload;
+  const out = { ...payload } as Record<string, unknown>;
+  for (const f of V02_FIELDS) delete out[f];
+  return out as T;
+};
 
 export function useTasks() {
   const { user } = useAuth();
@@ -80,13 +98,15 @@ export function useTasks() {
     setError(null);
     try {
       const db = requireSupabase();
-      const { data, error: queryError } = await db
-        .from('productive_tasks')
-        .select(TASK_COLUMNS)
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-      if (queryError) throw queryError;
-      setTasks(((data ?? []) as TaskRow[]).map(mapTask));
+      const tryLoad = (cols: string) =>
+        db.from('productive_tasks').select(cols).eq('user_id', user.id).order('created_at', { ascending: true });
+      let result = await tryLoad(v02Available ? TASK_COLUMNS_V02 : TASK_COLUMNS_V01);
+      if (result.error && v02Available && isMissingColumn(result.error)) {
+        v02Available = false;
+        result = await tryLoad(TASK_COLUMNS_V01);
+      }
+      if (result.error) throw result.error;
+      setTasks(((result.data ?? []) as Partial<TaskRow>[]).map(mapTask));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Aufgaben konnten nicht geladen werden.');
     } finally {
@@ -99,12 +119,14 @@ export function useTasks() {
   const persist = useCallback(async (id: string, patch: Partial<TaskRow>) => {
     if (!user) return;
     const db = requireSupabase();
-    const { error: updateError } = await db
-      .from('productive_tasks')
-      .update(patch)
-      .eq('id', id)
-      .eq('user_id', user.id);
-    if (updateError) throw updateError;
+    const tryUpdate = (p: Partial<TaskRow>) =>
+      db.from('productive_tasks').update(p).eq('id', id).eq('user_id', user.id);
+    let result = await tryUpdate(stripV02(patch));
+    if (result.error && v02Available && isMissingColumn(result.error)) {
+      v02Available = false;
+      result = await tryUpdate(stripV02(patch));
+    }
+    if (result.error) throw result.error;
   }, [user]);
 
   const toggle = useCallback(async (id: string) => {
@@ -147,7 +169,6 @@ export function useTasks() {
       ? Math.min(current.progress_amount + amount, target)
       : current.progress_amount + amount;
 
-    // Only auto-complete if target is actually reached
     const nextDone = target ? cappedProgress >= target : current.done;
     const updatedAt = nowISO();
 
@@ -219,7 +240,7 @@ export function useTasks() {
     setTasks(items => [...items, task]);
     try {
       const db = requireSupabase();
-      const { error: insertError } = await db.from('productive_tasks').insert({
+      const fullPayload = {
         id: task.id,
         user_id: user.id,
         title: task.title,
@@ -238,8 +259,14 @@ export function useTasks() {
         recurrence_days: task.recurrence_days,
         created_at: task.created_at,
         updated_at: task.updated_at,
-      });
-      if (insertError) throw insertError;
+      };
+      const tryInsert = () => db.from('productive_tasks').insert(stripV02(fullPayload));
+      let result = await tryInsert();
+      if (result.error && v02Available && isMissingColumn(result.error)) {
+        v02Available = false;
+        result = await tryInsert();
+      }
+      if (result.error) throw result.error;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Aufgabe konnte nicht erstellt werden.');
       setTasks(items => items.filter(item => item.id !== task.id));
