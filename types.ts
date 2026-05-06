@@ -4,11 +4,13 @@ export type Priority = 'hoch' | 'mittel' | 'niedrig';
 
 export type TaskCategory = 'school' | 'sport' | 'personal' | 'work' | 'reading' | 'other';
 
-// ─── Task Unit & Time-of-Day ───────────────────────────────────────────────
+// ─── Task Unit, Time-of-Day & Recurrence ──────────────────────────────────
 
 export type TaskUnit = 'none' | 'pages' | 'minutes' | 'count';
 
 export type TaskTimeOfDay = 'any' | 'morning' | 'midday' | 'evening';
+
+export type TaskRecurrence = 'none' | 'daily' | 'weekly' | 'weekdays';
 
 // ─── Task ──────────────────────────────────────────────────────────────────
 
@@ -20,12 +22,16 @@ export interface Task {
   priority: Priority;
   category: TaskCategory;
   done: boolean;
+  skipped: boolean;
   date: string;         // ISO date — YYYY-MM-DD
   unit: TaskUnit;
   target_amount?: number;
   progress_amount: number;
   time_of_day: TaskTimeOfDay;
   book_id?: string;
+  recurrence: TaskRecurrence;
+  recurrence_days: number[];   // 0=Sun, 1=Mon, ..., 6=Sat
+  last_completed_date?: string; // ISO date, for recurring tasks
   created_at: string;
   updated_at: string;
 }
@@ -84,6 +90,33 @@ export interface LearningSession {
   duration_minutes: number;
   notes?: string;
   date: string;
+}
+
+// ─── School details ────────────────────────────────────────────────────────
+
+export interface HomeworkEntry {
+  id: string;
+  subject_id: string;
+  title: string;
+  due_date?: string;
+  done: boolean;
+}
+
+export interface GradeEntry {
+  id: string;
+  subject_id: string;
+  label: string;
+  grade: number;
+  type: 'exam' | 'quarterly';
+  date: string;
+}
+
+export interface AbsenceEntry {
+  id: string;
+  subject_id: string;
+  date: string;
+  hours: number;
+  excused: boolean;
 }
 
 // ─── App State ─────────────────────────────────────────────────────────────

@@ -138,5 +138,53 @@ export function useSchool() {
     }
   }, [user]);
 
-  return { subjects, loading, error, updateGrade, updateNext, addSubject, reload: loadSubjects };
+  const updateSubject = useCallback(async (id: string, patch: Partial<Omit<SubjectEntry, 'id'>>) => {
+    const current = subjects.find(s => s.id === id);
+    if (!current || !user) return;
+
+    const next = { ...current, ...patch };
+    setSubjects(items => items.map(s => s.id === id ? next : s));
+
+    try {
+      const db = requireSupabase();
+      const dbPatch: Record<string, unknown> = {};
+      if (patch.name     !== undefined) dbPatch.name       = patch.name;
+      if (patch.grade    !== undefined) dbPatch.grade      = patch.grade;
+      if (patch.next     !== undefined) dbPatch.next_event = patch.next;
+      if (patch.color    !== undefined) dbPatch.color      = patch.color;
+      if (patch.done     !== undefined) dbPatch.done       = patch.done;
+      if (patch.total    !== undefined) dbPatch.total      = patch.total;
+
+      const { error: updateError } = await db
+        .from('productive_subjects')
+        .update(dbPatch)
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (updateError) throw updateError;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fach konnte nicht gespeichert werden.');
+      setSubjects(items => items.map(s => s.id === id ? current : s));
+    }
+  }, [subjects, user]);
+
+  const removeSubject = useCallback(async (id: string) => {
+    const current = subjects.find(s => s.id === id);
+    if (!current || !user) return;
+
+    setSubjects(items => items.filter(s => s.id !== id));
+    try {
+      const db = requireSupabase();
+      const { error: deleteError } = await db
+        .from('productive_subjects')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (deleteError) throw deleteError;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Fach konnte nicht gelöscht werden.');
+      setSubjects(items => [...items, current]);
+    }
+  }, [subjects, user]);
+
+  return { subjects, loading, error, updateGrade, updateNext, addSubject, updateSubject, removeSubject, reload: loadSubjects };
 }

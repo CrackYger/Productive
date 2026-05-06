@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import type { Priority, TaskCategory, TaskTimeOfDay, TaskUnit } from '../../../types';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { Priority, Task, TaskCategory, TaskRecurrence, TaskTimeOfDay, TaskUnit } from '../../../types';
 import type { AddInput } from '../../../hooks/useTasks';
 import { useBooks } from '../../../hooks/useBooks';
 import { useHideChromeWhileMounted } from '../../../contexts/UIChromeContext';
@@ -11,6 +11,8 @@ interface AddTaskModalProps {
   onAdd: (input: AddInput) => void;
   onClose: () => void;
   accent: string;
+  initialTask?: Task;
+  onUpdate?: (id: string, input: AddInput) => void;
 }
 
 const PRIORITIES: { key: Priority; label: string; color: string }[] = [
@@ -42,6 +44,23 @@ const TIME_OF_DAY: { key: TaskTimeOfDay; label: string; emoji: string }[] = [
   { key: 'evening', label: 'Abends', emoji: '↓' },
 ];
 
+const RECURRENCES: { key: TaskRecurrence; label: string }[] = [
+  { key: 'none', label: 'Einmalig' },
+  { key: 'daily', label: 'Täglich' },
+  { key: 'weekly', label: 'Wöchentlich' },
+  { key: 'weekdays', label: 'Wochentage' },
+];
+
+const WEEKDAYS: { day: number; label: string }[] = [
+  { day: 1, label: 'Mo' },
+  { day: 2, label: 'Di' },
+  { day: 3, label: 'Mi' },
+  { day: 4, label: 'Do' },
+  { day: 5, label: 'Fr' },
+  { day: 6, label: 'Sa' },
+  { day: 0, label: 'So' },
+];
+
 const FIELD_LABEL: React.CSSProperties = {
   fontSize: 10,
   color: 'rgba(255,255,255,0.42)',
@@ -64,30 +83,42 @@ const INPUT_STYLE: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
-export const AddTaskModal: React.FC<AddTaskModalProps> = ({ onAdd, onClose, accent }) => {
+export const AddTaskModal: React.FC<AddTaskModalProps> = ({ onAdd, onClose, accent, initialTask, onUpdate }) => {
   useHideChromeWhileMounted();
+  const isEdit = !!initialTask;
 
   const { books } = useBooks();
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
-  const [prio, setPrio] = useState<Priority>('mittel');
-  const [category, setCategory] = useState<TaskCategory>('personal');
-  const [unit, setUnit] = useState<TaskUnit>('none');
-  const [target, setTarget] = useState('');
-  const [timeOfDay, setTimeOfDay] = useState<TaskTimeOfDay>('any');
-  const [bookId, setBookId] = useState<string | undefined>(undefined);
+  const [title, setTitle] = useState(initialTask?.title ?? '');
+  const [desc, setDesc] = useState(initialTask?.description ?? '');
+  const [prio, setPrio] = useState<Priority>(initialTask?.priority ?? 'mittel');
+  const [category, setCategory] = useState<TaskCategory>(initialTask?.category ?? 'personal');
+  const [unit, setUnit] = useState<TaskUnit>(initialTask?.unit ?? 'none');
+  const [target, setTarget] = useState(initialTask?.target_amount !== undefined ? String(initialTask.target_amount) : '');
+  const [timeOfDay, setTimeOfDay] = useState<TaskTimeOfDay>(initialTask?.time_of_day ?? 'any');
+  const [bookId, setBookId] = useState<string | undefined>(initialTask?.book_id);
+  const [recurrence, setRecurrence] = useState<TaskRecurrence>(initialTask?.recurrence ?? 'none');
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>(initialTask?.recurrence_days ?? []);
+
+  const mounted = useRef(false);
 
   useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
     const def = CATEGORIES.find(item => item.key === category)?.defaultUnit ?? 'none';
     setUnit(def);
     if (category !== 'reading') setBookId(undefined);
   }, [category]);
 
   useEffect(() => {
-    if (category === 'reading' && !bookId && books.length > 0) {
+    if (category === 'reading' && !bookId && books.length > 0 && !isEdit) {
       setBookId(books[0].id);
     }
-  }, [category, books, bookId]);
+  }, [category, books, bookId, isEdit]);
+
+  const toggleWeekday = (day: number) => {
+    setRecurrenceDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
+  };
 
   const targetNumber = useMemo(() => {
     const value = parseInt(target, 10);
@@ -98,7 +129,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ onAdd, onClose, acce
 
   const submit = () => {
     if (!canSubmit) return;
-    onAdd({
+    const input: AddInput = {
       title: title.trim(),
       description: desc.trim() || undefined,
       priority: prio,
@@ -107,7 +138,14 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ onAdd, onClose, acce
       target_amount: unit === 'none' ? undefined : targetNumber,
       time_of_day: timeOfDay,
       book_id: category === 'reading' ? bookId : undefined,
-    });
+      recurrence,
+      recurrence_days: recurrence === 'weekdays' ? recurrenceDays : [],
+    };
+    if (isEdit && onUpdate && initialTask) {
+      onUpdate(initialTask.id, input);
+    } else {
+      onAdd(input);
+    }
     onClose();
   };
 
@@ -136,8 +174,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ onAdd, onClose, acce
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 12px' }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>Neue Aufgabe</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 2 }}>Plane einen Schritt für heute.</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>{isEdit ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 2 }}>{isEdit ? 'Änderungen speichern.' : 'Plane einen Schritt für heute.'}</div>
           </div>
           <button type="button" aria-label="Schließen" onClick={onClose} style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
             ×
@@ -300,6 +338,65 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ onAdd, onClose, acce
           </div>
 
           <div style={{ marginBottom: 14 }}>
+            <div style={FIELD_LABEL}>Wiederholung</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: recurrence === 'weekdays' ? 8 : 0 }}>
+              {RECURRENCES.map(option => {
+                const active = recurrence === option.key;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setRecurrence(option.key)}
+                    style={{
+                      padding: '8px 4px',
+                      borderRadius: 11,
+                      border: `1.5px solid ${active ? accent : 'rgba(255,255,255,0.08)'}`,
+                      background: active ? `${accent}1f` : '#0c0c16',
+                      color: active ? accent : 'rgba(255,255,255,0.55)',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
+                      transition: 'all 0.16s ease',
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+            {recurrence === 'weekdays' && (
+              <div style={{ display: 'flex', gap: 5 }}>
+                {WEEKDAYS.map(wd => {
+                  const active = recurrenceDays.includes(wd.day);
+                  return (
+                    <button
+                      key={wd.day}
+                      type="button"
+                      onClick={() => toggleWeekday(wd.day)}
+                      style={{
+                        flex: 1,
+                        padding: '7px 2px',
+                        borderRadius: 9,
+                        border: `1.5px solid ${active ? accent : 'rgba(255,255,255,0.08)'}`,
+                        background: active ? `${accent}22` : '#0c0c16',
+                        color: active ? accent : 'rgba(255,255,255,0.42)',
+                        fontSize: 10,
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {wd.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
             <div style={FIELD_LABEL}>Priorität</div>
             <div style={{ display: 'flex', gap: 8 }}>
               {PRIORITIES.map(option => {
@@ -356,7 +453,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({ onAdd, onClose, acce
               transition: 'all 0.2s ease',
             }}
           >
-            Hinzufügen
+            {isEdit ? 'Speichern' : 'Hinzufügen'}
           </button>
         </div>
       </div>

@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { ScoreRing } from '../../../components/ScoreRing';
 import { StatCard } from '../../../components/StatCard';
 import { StreakBadge } from './StreakBadge';
-import { XpBanner } from './XpBanner';
 import { TaskItem } from './TaskItem';
 import { AddTaskModal } from './AddTaskModal';
 import { useProfile } from '../../../hooks/useProfile';
@@ -24,10 +23,11 @@ const FILTERS: { key: DaypartFilter; label: string }[] = [
 
 export const HomeScreen: React.FC = () => {
   const { profile } = useProfile();
-  const { tasks, loading, error, toggle, advanceProgress, skip, remove, add } = useTasks();
+  const { tasks, loading, error, toggle, advanceProgress, skip, remove, add, updateTask } = useTasks();
   const { streak, markToday } = useStreak();
   const { books, addPages } = useBooks();
   const [modal, setModal] = useState(false);
+  const [editTask, setEditTask] = useState<Task | null>(null);
   const [filter, setFilter] = useState<DaypartFilter>('all');
 
   const visibleTasks = useMemo(() => {
@@ -72,7 +72,7 @@ export const HomeScreen: React.FC = () => {
   };
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
+    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
       <div style={{ padding: 'max(50px, env(safe-area-inset-top)) 18px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', animation: 'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both' }}>
         <div style={{ minWidth: 0, paddingRight: 8 }}>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: -0.8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{userName}</div>
@@ -81,21 +81,17 @@ export const HomeScreen: React.FC = () => {
         <StreakBadge days={streak} />
       </div>
 
-      <div style={{ padding: '12px 18px 0', animation: 'fadeUp 0.42s 0.07s cubic-bezier(0.22,1,0.36,1) both' }}>
-        <XpBanner accent={ACCENT} score={score} />
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 18px 0', animation: 'popIn 0.55s 0.12s cubic-bezier(0.22,1,0.36,1) both' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '14px 18px 0', animation: 'popIn 0.55s 0.1s cubic-bezier(0.22,1,0.36,1) both' }}>
         <ScoreRing score={score} accent={ACCENT} green={GREEN} />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, padding: '10px 18px 0', animation: 'fadeUp 0.42s 0.22s cubic-bezier(0.22,1,0.36,1) both' }}>
+      <div style={{ display: 'flex', gap: 8, padding: '10px 18px 0', animation: 'fadeUp 0.42s 0.18s cubic-bezier(0.22,1,0.36,1) both' }}>
         <StatCard icon="check" value={done} label="Erledigt" color={GREEN} radius={CARD_RADIUS - 4} />
         <StatCard icon="clock" value={Math.max(visibleTasks.length - done, 0)} label="Offen" color={ACCENT} radius={CARD_RADIUS - 4} />
         <StatCard icon="fire" value={`${streak}T`} label="Serie" color="#FF6B2B" radius={CARD_RADIUS - 4} />
       </div>
 
-      <div style={{ padding: '14px 18px 0', animation: 'fadeUp 0.42s 0.25s cubic-bezier(0.22,1,0.36,1) both' }}>
+      <div style={{ padding: '14px 18px 0', animation: 'fadeUp 0.42s 0.22s cubic-bezier(0.22,1,0.36,1) both' }}>
         <div style={{ display: 'flex', gap: 6, background: '#0c0c16', borderRadius: 14, padding: 4, border: '1px solid rgba(255,255,255,0.05)' }}>
           {FILTERS.map(option => {
             const active = filter === option.key;
@@ -126,7 +122,7 @@ export const HomeScreen: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ padding: '14px 18px 0', animation: 'fadeUp 0.42s 0.28s cubic-bezier(0.22,1,0.36,1) both' }}>
+      <div style={{ padding: '14px 18px 0', animation: 'fadeUp 0.42s 0.26s cubic-bezier(0.22,1,0.36,1) both' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.4 }}>Aufgaben</div>
@@ -156,13 +152,14 @@ export const HomeScreen: React.FC = () => {
             </div>
           )}
           {!loading && visibleTasks.map((task, i) => (
-            <div key={task.id} style={{ animation: `fadeUp 0.38s ${0.3 + 0.06 * i}s cubic-bezier(0.22,1,0.36,1) both` }}>
+            <div key={task.id} style={{ animation: `fadeUp 0.38s ${0.28 + 0.06 * i}s cubic-bezier(0.22,1,0.36,1) both` }}>
               <TaskItem
                 task={task}
                 onToggle={handleToggle}
                 onAdvance={handleAdvance}
                 onSkip={skip}
                 onRemove={remove}
+                onEdit={setEditTask}
                 accent={ACCENT}
                 green={GREEN}
                 cardRadius={CARD_RADIUS - 4}
@@ -173,6 +170,15 @@ export const HomeScreen: React.FC = () => {
       </div>
 
       {modal && <AddTaskModal onAdd={add} onClose={() => setModal(false)} accent={ACCENT} />}
+      {editTask && (
+        <AddTaskModal
+          onAdd={add}
+          onUpdate={(id, input) => { void updateTask(id, input); }}
+          initialTask={editTask}
+          onClose={() => setEditTask(null)}
+          accent={ACCENT}
+        />
+      )}
     </div>
   );
 };

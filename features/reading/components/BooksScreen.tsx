@@ -5,7 +5,7 @@ import { ACCENT, GREEN, CARD_RADIUS } from '../../../constants/theme';
 import { useBooks } from '../../../hooks/useBooks';
 import { useSettings } from '../../../hooks/useSettings';
 import { useHideChromeWhileMounted } from '../../../contexts/UIChromeContext';
-import type { AddBookInput } from '../../../hooks/useBooks';
+import type { AddBookInput, BookEntry } from '../../../hooks/useBooks';
 
 const COLORS = ['#FF6B2B', ACCENT, GREEN, '#FF5252', '#c084fc', '#FFD700'];
 
@@ -31,7 +31,7 @@ const INPUT: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
-const COVER_MAX_BYTES = 1_400_000; // ~1.4MB raw image budget after resize
+const COVER_MAX_BYTES = 1_400_000;
 
 async function fileToCoverDataUrl(file: File): Promise<string> {
   const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -69,14 +69,22 @@ async function fileToCoverDataUrl(file: File): Promise<string> {
   return result;
 }
 
-const AddBookModal: React.FC<{ onAdd: (input: AddBookInput) => void; onClose: () => void }> = ({ onAdd, onClose }) => {
-  useHideChromeWhileMounted();
+interface BookModalProps {
+  onAdd: (input: AddBookInput) => void;
+  onClose: () => void;
+  initialBook?: BookEntry;
+  onUpdate?: (id: string, input: Partial<AddBookInput>) => void;
+}
 
-  const [title, setTitle] = useState('');
-  const [author, setAuthor] = useState('');
-  const [pages, setPages] = useState('');
-  const [color, setColor] = useState(COLORS[0]);
-  const [coverUrl, setCoverUrl] = useState<string | undefined>(undefined);
+const BookModal: React.FC<BookModalProps> = ({ onAdd, onClose, initialBook, onUpdate }) => {
+  useHideChromeWhileMounted();
+  const isEdit = !!initialBook;
+
+  const [title, setTitle] = useState(initialBook?.title ?? '');
+  const [author, setAuthor] = useState(initialBook?.author ?? '');
+  const [pages, setPages] = useState(initialBook ? String(initialBook.pages) : '');
+  const [color, setColor] = useState(initialBook?.color ?? COLORS[0]);
+  const [coverUrl, setCoverUrl] = useState<string | undefined>(initialBook?.coverUrl);
   const [coverError, setCoverError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -100,7 +108,12 @@ const AddBookModal: React.FC<{ onAdd: (input: AddBookInput) => void; onClose: ()
   const submit = () => {
     const pageCount = parseInt(pages, 10);
     if (!title.trim() || !pageCount || pageCount < 1) return;
-    onAdd({ title: title.trim(), author: author.trim() || 'Unbekannt', pages: pageCount, color, coverUrl });
+    const input: AddBookInput = { title: title.trim(), author: author.trim() || 'Unbekannt', pages: pageCount, color, coverUrl };
+    if (isEdit && onUpdate && initialBook) {
+      onUpdate(initialBook.id, input);
+    } else {
+      onAdd(input);
+    }
     onClose();
   };
 
@@ -127,8 +140,8 @@ const AddBookModal: React.FC<{ onAdd: (input: AddBookInput) => void; onClose: ()
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 12px' }}>
           <div>
-            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>Neues Buch</div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 2 }}>Lege ein neues Buch in deiner Bibliothek an.</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>{isEdit ? 'Buch bearbeiten' : 'Neues Buch'}</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 2 }}>{isEdit ? 'Änderungen speichern.' : 'Lege ein neues Buch in deiner Bibliothek an.'}</div>
           </div>
           <button type="button" aria-label="Schließen" onClick={onClose} style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
             ×
@@ -218,7 +231,7 @@ const AddBookModal: React.FC<{ onAdd: (input: AddBookInput) => void; onClose: ()
 
         <div style={{ padding: '12px 18px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
           <button type="button" onClick={submit} style={{ width: '100%', padding: 14, borderRadius: 15, background: `linear-gradient(135deg,${ACCENT},#008888)`, border: 'none', color: '#050508', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 6px 22px ${ACCENT}50` }}>
-            Hinzufügen
+            {isEdit ? 'Speichern' : 'Hinzufügen'}
           </button>
         </div>
       </div>
@@ -227,10 +240,11 @@ const AddBookModal: React.FC<{ onAdd: (input: AddBookInput) => void; onClose: ()
 };
 
 export const BooksScreen: React.FC = () => {
-  const { books, loading, error, updatePage, addBook, removeBook } = useBooks();
+  const { books, loading, error, updatePage, addBook, updateBook, removeBook } = useBooks();
   const { settings } = useSettings();
   const [sel, setSel] = useState<string | null>(null);
   const [modal, setModal] = useState(false);
+  const [editBook, setEditBook] = useState<BookEntry | null>(null);
   const [editPage, setEditPage] = useState('');
   const [editing, setEditing] = useState<string | null>(null);
 
@@ -251,7 +265,7 @@ export const BooksScreen: React.FC = () => {
   };
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
+    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}>
       <div style={{ padding: 'max(50px, env(safe-area-inset-top)) 18px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', animation: 'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both' }}>
         <div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: -0.8 }}>Bücher</div>
@@ -361,7 +375,7 @@ export const BooksScreen: React.FC = () => {
                     <button type="button" onClick={() => void updatePage(book.id, book.cur + 10)} style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                     {[
                       { label: 'Verbleibend', value: `${remainingPages} S.`, icon: 'clock' as const },
                       { label: 'Seiten/Tag', value: String(pagesPerDay), icon: 'bolt' as const },
@@ -375,9 +389,14 @@ export const BooksScreen: React.FC = () => {
                     ))}
                   </div>
 
-                  <button type="button" onClick={() => { setSel(null); void removeBook(book.id); }} style={{ marginTop: 10, width: '100%', padding: '8px', borderRadius: 10, background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.18)', color: '#FF5252', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Buch entfernen
-                  </button>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={() => setEditBook(book)} style={{ flex: 1, padding: '8px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Bearbeiten
+                    </button>
+                    <button type="button" onClick={() => { setSel(null); void removeBook(book.id); }} style={{ flex: 1, padding: '8px', borderRadius: 10, background: 'rgba(255,82,82,0.08)', border: '1px solid rgba(255,82,82,0.18)', color: '#FF5252', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      Entfernen
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -385,7 +404,15 @@ export const BooksScreen: React.FC = () => {
         })}
       </div>
 
-      {modal && <AddBookModal onAdd={addBook} onClose={() => setModal(false)} />}
+      {modal && <BookModal onAdd={addBook} onClose={() => setModal(false)} />}
+      {editBook && (
+        <BookModal
+          onAdd={addBook}
+          initialBook={editBook}
+          onUpdate={(id, input) => { void updateBook(id, input); setSel(null); }}
+          onClose={() => setEditBook(null)}
+        />
+      )}
     </div>
   );
 };

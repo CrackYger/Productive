@@ -154,5 +154,39 @@ export function useBooks() {
     }
   }, [books, user]);
 
-  return { books, loading, error, updatePage, addPages, addBook, removeBook, reload: loadBooks };
+  const updateBook = useCallback(async (id: string, input: Partial<AddBookInput>) => {
+    const current = books.find(b => b.id === id);
+    if (!current || !user) return;
+
+    const next: BookEntry = {
+      ...current,
+      title: input.title ?? current.title,
+      author: input.author ?? current.author,
+      pages: input.pages ?? current.pages,
+      color: input.color ?? current.color,
+      coverUrl: 'coverUrl' in input ? input.coverUrl : current.coverUrl,
+    };
+    setBooks(items => items.map(b => b.id === id ? next : b));
+
+    try {
+      const db = requireSupabase();
+      const { error: updateError } = await db
+        .from('productive_books')
+        .update({
+          title: next.title,
+          author: next.author,
+          pages: next.pages,
+          color: next.color,
+          cover_url: next.coverUrl ?? null,
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+      if (updateError) throw updateError;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Buch konnte nicht gespeichert werden.');
+      setBooks(items => items.map(b => b.id === id ? current : b));
+    }
+  }, [books, user]);
+
+  return { books, loading, error, updatePage, addPages, addBook, updateBook, removeBook, reload: loadBooks };
 }
