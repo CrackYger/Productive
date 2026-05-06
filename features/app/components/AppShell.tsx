@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useUIChrome } from '../../../contexts/UIChromeContext';
 import { AuthScreen } from '../../auth/components/AuthScreen';
 import { TabBar }      from './TabBar';
 import { HomeScreen }  from '../../tasks/components/HomeScreen';
@@ -16,6 +17,7 @@ const LoadingScreen: React.FC = () => (
 
 export const AppShell: React.FC = () => {
   const { loading, session } = useAuth();
+  const { chromeHidden } = useUIChrome();
   const [tab, setTab] = useState<TabId>('home');
   const [key, setKey] = useState(0);
 
@@ -50,7 +52,7 @@ export const AppShell: React.FC = () => {
             {tab === 'school'  && <SchuleScreen />}
             {tab === 'profile' && <ProfilScreen />}
           </div>
-          <TabBar active={tab} onChange={go} />
+          <TabBar active={tab} onChange={go} hidden={chromeHidden} />
         </>
       )}
     </div>

@@ -4,6 +4,12 @@ export type Priority = 'hoch' | 'mittel' | 'niedrig';
 
 export type TaskCategory = 'school' | 'sport' | 'personal' | 'work' | 'reading' | 'other';
 
+// ─── Task Unit & Time-of-Day ───────────────────────────────────────────────
+
+export type TaskUnit = 'none' | 'pages' | 'minutes' | 'count';
+
+export type TaskTimeOfDay = 'any' | 'morning' | 'midday' | 'evening';
+
 // ─── Task ──────────────────────────────────────────────────────────────────
 
 export interface Task {
@@ -12,9 +18,14 @@ export interface Task {
   title: string;
   description?: string;
   priority: Priority;
-  category?: TaskCategory;
+  category: TaskCategory;
   done: boolean;
   date: string;         // ISO date — YYYY-MM-DD
+  unit: TaskUnit;
+  target_amount?: number;
+  progress_amount: number;
+  time_of_day: TaskTimeOfDay;
+  book_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -58,6 +69,7 @@ export interface ReadingEntry {
   author?: string;
   total_pages?: number;
   current_page: number;
+  cover_url?: string;
   status: 'reading' | 'done' | 'paused';
   started_at?: string;
   finished_at?: string;

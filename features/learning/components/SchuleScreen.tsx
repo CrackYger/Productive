@@ -3,6 +3,7 @@ import { Icon } from '../../../components/Icon';
 import { todayFormatted } from '../../../utils/date';
 import { ACCENT, GREEN, CARD_RADIUS } from '../../../constants/theme';
 import { useSchool } from '../../../hooks/useSchool';
+import { useHideChromeWhileMounted } from '../../../contexts/UIChromeContext';
 import type { SubjectEntry } from '../../../hooks/useSchool';
 
 const GRADES = [1.0, 1.3, 1.7, 2.0, 2.3, 2.7, 3.0, 3.3, 3.7, 4.0, 5.0, 6.0];
@@ -10,18 +11,29 @@ const COLORS = ['#FF6B2B', GREEN, ACCENT, '#c084fc', '#FF5252', '#FFD700'];
 
 const INPUT: React.CSSProperties = {
   width: '100%',
-  background: '#0e0e1a',
-  border: '1px solid rgba(255,255,255,0.1)',
+  background: '#0c0c16',
+  border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 13,
   padding: '12px 14px',
   fontSize: 16,
   color: '#fff',
   outline: 'none',
   fontFamily: 'inherit',
-  marginBottom: 10,
+  boxSizing: 'border-box',
+};
+
+const FIELD_LABEL: React.CSSProperties = {
+  fontSize: 10,
+  color: 'rgba(255,255,255,0.42)',
+  fontWeight: 700,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+  marginBottom: 8,
 };
 
 const AddSubjectModal: React.FC<{ onAdd: (input: Omit<SubjectEntry, 'id'>) => void; onClose: () => void }> = ({ onAdd, onClose }) => {
+  useHideChromeWhileMounted();
+
   const [name, setName] = useState('');
   const [grade, setGrade] = useState('2.0');
   const [next, setNext] = useState('');
@@ -47,25 +59,56 @@ const AddSubjectModal: React.FC<{ onAdd: (input: Omit<SubjectEntry, 'id'>) => vo
   };
 
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }} onClick={onClose}>
-      <div style={{ width: '100%', background: '#12121e', borderRadius: '22px 22px 0 0', padding: '18px 18px calc(40px + env(safe-area-inset-bottom, 0px))', animation: 'sheetUp 0.4s cubic-bezier(0.22,1,0.36,1) both' }} onClick={event => event.stopPropagation()}>
-        <div style={{ width: 38, height: 4, background: 'rgba(255,255,255,0.14)', borderRadius: 99, margin: '0 auto 18px' }} />
-        <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginBottom: 14, letterSpacing: -0.3 }}>Neues Fach</div>
-        <input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Fachname" style={INPUT} />
-        <input value={next} onChange={event => setNext(event.target.value)} placeholder="Nächster Termin" style={INPUT} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-          <input value={grade} onChange={event => setGrade(event.target.value)} placeholder="Note" type="number" min={1} max={6} step={0.1} inputMode="decimal" style={INPUT} />
-          <input value={done} onChange={event => setDone(event.target.value)} placeholder="Erledigt" type="number" min={0} inputMode="numeric" style={INPUT} />
-          <input value={total} onChange={event => setTotal(event.target.value)} placeholder="Gesamt" type="number" min={0} inputMode="numeric" style={INPUT} />
+    <div
+      style={{ position: 'absolute', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: 16, animation: 'fadeIn 0.18s ease both' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ width: '100%', maxWidth: 380, maxHeight: 'calc(100dvh - 64px)', background: 'linear-gradient(180deg,#15151f 0%,#0f0f18 100%)', borderRadius: 22, border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 20px 60px rgba(0,0,0,0.55)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'modalIn 0.32s cubic-bezier(0.22,1,0.36,1) both' }}
+        onClick={event => event.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 12px' }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>Neues Fach</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 2 }}>Mit Farbe und Fortschritt anlegen.</div>
+          </div>
+          <button type="button" aria-label="Schließen" onClick={onClose} style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+            ×
+          </button>
         </div>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-          {COLORS.map(item => (
-            <button key={item} type="button" aria-label={`Farbe ${item}`} onClick={() => setColor(item)} style={{ width: 32, height: 32, borderRadius: 10, background: item, border: color === item ? '2.5px solid #fff' : '2.5px solid transparent', cursor: 'pointer', flexShrink: 0 }} />
-          ))}
+
+        <div style={{ padding: '4px 18px 16px', overflowY: 'auto' }}>
+          <div style={{ marginBottom: 12 }}>
+            <div style={FIELD_LABEL}>Fach</div>
+            <input autoFocus value={name} onChange={event => setName(event.target.value)} placeholder="Fachname" style={INPUT} />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <div style={FIELD_LABEL}>Nächster Termin</div>
+            <input value={next} onChange={event => setNext(event.target.value)} placeholder="z.B. Klausur 12.05." style={INPUT} />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <div style={FIELD_LABEL}>Note & Fortschritt</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+              <input value={grade} onChange={event => setGrade(event.target.value)} placeholder="Note" type="number" min={1} max={6} step={0.1} inputMode="decimal" style={INPUT} />
+              <input value={done} onChange={event => setDone(event.target.value)} placeholder="Erledigt" type="number" min={0} inputMode="numeric" style={INPUT} />
+              <input value={total} onChange={event => setTotal(event.target.value)} placeholder="Gesamt" type="number" min={0} inputMode="numeric" style={INPUT} />
+            </div>
+          </div>
+          <div style={{ marginBottom: 4 }}>
+            <div style={FIELD_LABEL}>Farbe</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {COLORS.map(item => (
+                <button key={item} type="button" aria-label={`Farbe ${item}`} onClick={() => setColor(item)} style={{ width: 32, height: 32, borderRadius: 10, background: item, border: color === item ? '2.5px solid #fff' : '2.5px solid transparent', cursor: 'pointer', flexShrink: 0 }} />
+              ))}
+            </div>
+          </div>
         </div>
-        <button type="button" onClick={submit} style={{ width: '100%', padding: 14, borderRadius: 15, background: `linear-gradient(135deg,${ACCENT},#008888)`, border: 'none', color: '#050508', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 6px 22px ${ACCENT}50` }}>
-          Hinzufügen
-        </button>
+
+        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <button type="button" onClick={submit} style={{ width: '100%', padding: 14, borderRadius: 15, background: `linear-gradient(135deg,${ACCENT},#008888)`, border: 'none', color: '#050508', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 6px 22px ${ACCENT}50` }}>
+            Hinzufügen
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -85,7 +128,7 @@ export const SchuleScreen: React.FC = () => {
   const improvement = subjects.length ? `${improvementNumber > 0 ? '+' : ''}${improvementNumber.toFixed(1)}` : '-';
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 90 }}>
+    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
       <div style={{ padding: 'max(50px, env(safe-area-inset-top)) 18px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', animation: 'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both' }}>
         <div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: -0.8 }}>Schule</div>

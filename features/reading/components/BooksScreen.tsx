@@ -1,60 +1,226 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Icon } from '../../../components/Icon';
 import { todayFormatted } from '../../../utils/date';
 import { ACCENT, GREEN, CARD_RADIUS } from '../../../constants/theme';
 import { useBooks } from '../../../hooks/useBooks';
 import { useSettings } from '../../../hooks/useSettings';
+import { useHideChromeWhileMounted } from '../../../contexts/UIChromeContext';
 import type { AddBookInput } from '../../../hooks/useBooks';
 
 const COLORS = ['#FF6B2B', ACCENT, GREEN, '#FF5252', '#c084fc', '#FFD700'];
 
+const FIELD_LABEL: React.CSSProperties = {
+  fontSize: 10,
+  color: 'rgba(255,255,255,0.42)',
+  fontWeight: 700,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+  marginBottom: 8,
+};
+
 const INPUT: React.CSSProperties = {
   width: '100%',
-  background: '#0e0e1a',
-  border: '1px solid rgba(255,255,255,0.1)',
+  background: '#0c0c16',
+  border: '1px solid rgba(255,255,255,0.08)',
   borderRadius: 13,
   padding: '12px 14px',
   fontSize: 16,
   color: '#fff',
   outline: 'none',
   fontFamily: 'inherit',
-  marginBottom: 10,
   boxSizing: 'border-box',
 };
 
+const COVER_MAX_BYTES = 1_400_000; // ~1.4MB raw image budget after resize
+
+async function fileToCoverDataUrl(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error ?? new Error('Datei konnte nicht gelesen werden.'));
+    reader.readAsDataURL(file);
+  });
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Bild konnte nicht geladen werden.'));
+    img.src = dataUrl;
+  });
+
+  const maxSide = 480;
+  const ratio = Math.min(1, maxSide / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * ratio));
+  const height = Math.max(1, Math.round(image.height * ratio));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return dataUrl;
+  ctx.drawImage(image, 0, 0, width, height);
+
+  let quality = 0.85;
+  let result = canvas.toDataURL('image/jpeg', quality);
+  while (result.length > COVER_MAX_BYTES && quality > 0.4) {
+    quality -= 0.1;
+    result = canvas.toDataURL('image/jpeg', quality);
+  }
+  return result;
+}
+
 const AddBookModal: React.FC<{ onAdd: (input: AddBookInput) => void; onClose: () => void }> = ({ onAdd, onClose }) => {
+  useHideChromeWhileMounted();
+
   const [title, setTitle] = useState('');
   const [author, setAuthor] = useState('');
   const [pages, setPages] = useState('');
   const [color, setColor] = useState(COLORS[0]);
+  const [coverUrl, setCoverUrl] = useState<string | undefined>(undefined);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
+
+  const handleCover = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setCoverError('Bitte wähle eine Bilddatei.');
+      return;
+    }
+    try {
+      const dataUrl = await fileToCoverDataUrl(file);
+      setCoverUrl(dataUrl);
+      setCoverError(null);
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : 'Bild konnte nicht verarbeitet werden.');
+    }
+  };
 
   const submit = () => {
     const pageCount = parseInt(pages, 10);
     if (!title.trim() || !pageCount || pageCount < 1) return;
-    onAdd({ title: title.trim(), author: author.trim() || 'Unbekannt', pages: pageCount, color });
+    onAdd({ title: title.trim(), author: author.trim() || 'Unbekannt', pages: pageCount, color, coverUrl });
     onClose();
   };
 
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 100, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(8px)' }} onClick={onClose}>
-      <div style={{ width: '100%', background: '#12121e', borderRadius: '22px 22px 0 0', padding: '18px 18px calc(40px + env(safe-area-inset-bottom, 0px))', animation: 'sheetUp 0.4s cubic-bezier(0.22,1,0.36,1) both' }} onClick={event => event.stopPropagation()}>
-        <div style={{ width: 38, height: 4, background: 'rgba(255,255,255,0.14)', borderRadius: 99, margin: '0 auto 18px' }} />
-        <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', marginBottom: 14, letterSpacing: -0.3 }}>Neues Buch</div>
-
-        <input autoFocus value={title} onChange={event => setTitle(event.target.value)} placeholder="Titel..." style={INPUT} />
-        <input value={author} onChange={event => setAuthor(event.target.value)} placeholder="Autor (optional)" style={INPUT} />
-        <input value={pages} onChange={event => setPages(event.target.value)} placeholder="Seitenanzahl" type="number" min={1} inputMode="numeric" style={INPUT} onKeyDown={event => event.key === 'Enter' && submit()} />
-
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 8 }}>Farbe</div>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap' }}>
-          {COLORS.map(item => (
-            <button key={item} type="button" aria-label={`Farbe ${item}`} onClick={() => setColor(item)} style={{ width: 32, height: 32, borderRadius: 10, background: item, border: color === item ? '2.5px solid #fff' : '2.5px solid transparent', cursor: 'pointer', flexShrink: 0, transition: 'border 0.15s ease' }} />
-          ))}
+    <div
+      style={{ position: 'absolute', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', padding: 16, animation: 'fadeIn 0.18s ease both' }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: 380,
+          maxHeight: 'calc(100dvh - 64px)',
+          background: 'linear-gradient(180deg,#15151f 0%,#0f0f18 100%)',
+          borderRadius: 22,
+          border: '1px solid rgba(255,255,255,0.06)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.55)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          animation: 'modalIn 0.32s cubic-bezier(0.22,1,0.36,1) both',
+        }}
+        onClick={event => event.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 18px 12px' }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: -0.3 }}>Neues Buch</div>
+            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600, marginTop: 2 }}>Lege ein neues Buch in deiner Bibliothek an.</div>
+          </div>
+          <button type="button" aria-label="Schließen" onClick={onClose} style={{ width: 30, height: 30, borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+            ×
+          </button>
         </div>
 
-        <button type="button" onClick={submit} style={{ width: '100%', padding: 14, borderRadius: 15, background: `linear-gradient(135deg,${ACCENT},#008888)`, border: 'none', color: '#050508', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 6px 22px ${ACCENT}50` }}>
-          Hinzufügen
-        </button>
+        <div style={{ padding: '4px 18px 16px', overflowY: 'auto' }}>
+          <div style={{ marginBottom: 14 }}>
+            <div style={FIELD_LABEL}>Cover</div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                style={{
+                  width: 80,
+                  height: 104,
+                  borderRadius: 12,
+                  border: `1.5px dashed ${coverUrl ? 'transparent' : 'rgba(255,255,255,0.18)'}`,
+                  background: coverUrl ? '#0c0c16' : 'rgba(255,255,255,0.03)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
+                }}
+              >
+                {coverUrl ? (
+                  <img src={coverUrl} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, color: 'rgba(255,255,255,0.5)' }}>
+                    <Icon name="plus" size={18} color="rgba(255,255,255,0.55)" />
+                    <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: 0.6 }}>Foto</span>
+                  </div>
+                )}
+              </button>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => fileInput.current?.click()}
+                  style={{ padding: '8px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                >
+                  {coverUrl ? 'Anderes Foto' : 'Foto wählen'}
+                </button>
+                {coverUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setCoverUrl(undefined)}
+                    style={{ padding: '8px 12px', borderRadius: 10, background: 'transparent', border: '1px solid rgba(255,82,82,0.2)', color: '#FF7A7A', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+                  >
+                    Foto entfernen
+                  </button>
+                )}
+                {coverError && <div style={{ fontSize: 11, color: '#FF7A7A', fontWeight: 600 }}>{coverError}</div>}
+              </div>
+              <input ref={fileInput} type="file" accept="image/*" style={{ display: 'none' }} onChange={event => void handleCover(event)} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <div style={FIELD_LABEL}>Titel</div>
+            <input autoFocus value={title} onChange={event => setTitle(event.target.value)} placeholder="Buchtitel" style={INPUT} />
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <div style={FIELD_LABEL}>Autor</div>
+            <input value={author} onChange={event => setAuthor(event.target.value)} placeholder="Autor (optional)" style={INPUT} />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={FIELD_LABEL}>Seitenanzahl</div>
+            <input value={pages} onChange={event => setPages(event.target.value.replace(/[^0-9]/g, ''))} placeholder="z.B. 320" inputMode="numeric" style={INPUT} onKeyDown={event => event.key === 'Enter' && submit()} />
+          </div>
+
+          <div style={{ marginBottom: 4 }}>
+            <div style={FIELD_LABEL}>Farbe</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {COLORS.map(item => (
+                <button key={item} type="button" aria-label={`Farbe ${item}`} onClick={() => setColor(item)} style={{ width: 32, height: 32, borderRadius: 10, background: item, border: color === item ? '2.5px solid #fff' : '2.5px solid transparent', cursor: 'pointer', flexShrink: 0, transition: 'border 0.15s ease' }} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ padding: '12px 18px 16px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <button type="button" onClick={submit} style={{ width: '100%', padding: 14, borderRadius: 15, background: `linear-gradient(135deg,${ACCENT},#008888)`, border: 'none', color: '#050508', fontSize: 15, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: `0 6px 22px ${ACCENT}50` }}>
+            Hinzufügen
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -85,7 +251,7 @@ export const BooksScreen: React.FC = () => {
   };
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 90 }}>
+    <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}>
       <div style={{ padding: 'max(50px, env(safe-area-inset-top)) 18px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', animation: 'fadeDown 0.4s cubic-bezier(0.22,1,0.36,1) both' }}>
         <div>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#fff', letterSpacing: -0.8 }}>Bücher</div>
@@ -139,9 +305,15 @@ export const BooksScreen: React.FC = () => {
             <div key={book.id} onClick={() => setSel(isOpen ? null : book.id)}
               style={{ background: '#12121e', borderRadius: CARD_RADIUS, padding: 14, border: `1px solid ${isOpen ? `${book.color}40` : 'rgba(255,255,255,0.07)'}`, cursor: 'pointer', transition: 'all 0.24s cubic-bezier(0.22,1,0.36,1)', animation: `slideLeft 0.4s ${0.08 + 0.07 * index}s cubic-bezier(0.22,1,0.36,1) both`, transform: isOpen ? 'scale(1.01)' : 'scale(1)', boxShadow: isOpen ? '0 8px 28px rgba(0,0,0,0.4)' : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 48, height: 62, borderRadius: 10, flexShrink: 0, background: `linear-gradient(145deg,${book.color}28,${book.color}0a)`, border: `1.5px solid ${book.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Icon name="book" size={20} color={book.color} />
-                </div>
+                {book.coverUrl ? (
+                  <div style={{ width: 48, height: 62, borderRadius: 10, flexShrink: 0, overflow: 'hidden', border: `1.5px solid ${book.color}35`, boxShadow: '0 4px 14px rgba(0,0,0,0.32)' }}>
+                    <img src={book.coverUrl} alt={book.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  </div>
+                ) : (
+                  <div style={{ width: 48, height: 62, borderRadius: 10, flexShrink: 0, background: `linear-gradient(145deg,${book.color}28,${book.color}0a)`, border: `1.5px solid ${book.color}35`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icon name="book" size={20} color={book.color} />
+                  </div>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#f0f0f8', letterSpacing: -0.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.title}</div>
                   <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{book.author}</div>
@@ -160,6 +332,14 @@ export const BooksScreen: React.FC = () => {
 
               {isOpen && (
                 <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', animation: 'expandDown 0.26s cubic-bezier(0.22,1,0.36,1) both' }} onClick={event => event.stopPropagation()}>
+                  {book.coverUrl && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                      <div style={{ width: 130, height: 184, borderRadius: 14, overflow: 'hidden', boxShadow: '0 12px 32px rgba(0,0,0,0.6)', border: `1px solid ${book.color}30` }}>
+                        <img src={book.coverUrl} alt={book.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                     <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', fontWeight: 700, letterSpacing: 1.2, textTransform: 'uppercase', flex: 1 }}>Aktuelle Seite</div>
                     <button type="button" onClick={() => void updatePage(book.id, book.cur - 10)} style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>-</button>

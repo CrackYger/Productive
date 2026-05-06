@@ -9,6 +9,7 @@ export interface BookEntry {
   pages: number;
   cur: number;
   color: string;
+  coverUrl?: string;
 }
 
 export interface AddBookInput {
@@ -16,6 +17,7 @@ export interface AddBookInput {
   author: string;
   pages: number;
   color: string;
+  coverUrl?: string;
 }
 
 interface BookRow {
@@ -25,6 +27,7 @@ interface BookRow {
   pages: number;
   current_page: number;
   color: string;
+  cover_url: string | null;
 }
 
 const mapBook = (row: BookRow): BookEntry => ({
@@ -34,7 +37,10 @@ const mapBook = (row: BookRow): BookEntry => ({
   pages: row.pages,
   cur: row.current_page,
   color: row.color,
+  coverUrl: row.cover_url ?? undefined,
 });
+
+const BOOK_COLUMNS = 'id,title,author,pages,current_page,color,cover_url';
 
 export function useBooks() {
   const { user } = useAuth();
@@ -56,7 +62,7 @@ export function useBooks() {
       const db = requireSupabase();
       const { data, error: queryError } = await db
         .from('productive_books')
-        .select('id,title,author,pages,current_page,color')
+        .select(BOOK_COLUMNS)
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
 
@@ -95,6 +101,12 @@ export function useBooks() {
     }
   }, [books, user]);
 
+  const addPages = useCallback(async (id: string, delta: number) => {
+    const current = books.find(book => book.id === id);
+    if (!current || !user || delta === 0) return;
+    await updatePage(id, current.cur + delta);
+  }, [books, user, updatePage]);
+
   const addBook = useCallback(async (input: AddBookInput) => {
     if (!user) return;
 
@@ -111,6 +123,7 @@ export function useBooks() {
         pages: book.pages,
         current_page: book.cur,
         color: book.color,
+        cover_url: book.coverUrl ?? null,
       });
 
       if (insertError) throw insertError;
@@ -141,5 +154,5 @@ export function useBooks() {
     }
   }, [books, user]);
 
-  return { books, loading, error, updatePage, addBook, removeBook, reload: loadBooks };
+  return { books, loading, error, updatePage, addPages, addBook, removeBook, reload: loadBooks };
 }
